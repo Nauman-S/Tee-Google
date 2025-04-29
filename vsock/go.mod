@@ -1,4 +1,4 @@
-module vsock
+module github.com/EkamSinghPandher/Tee-Google/vsock
 
 go 1.23.0
 

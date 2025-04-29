@@ -7,7 +7,8 @@ import (
 	"net"
 	"os"
 	"time"
-	"vsock/socket"
+
+	"github.com/EkamSinghPandher/Tee-Google/vsock/socket"
 
 	"golang.org/x/sys/unix"
 )

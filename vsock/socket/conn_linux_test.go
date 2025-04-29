@@ -13,8 +13,8 @@ import (
 	"runtime"
 	"testing"
 
-	socket3 "vsock/socket"
-	"vsock/socket/internal/sockettest"
+	socket3 "github.com/EkamSinghPandher/Tee-Google/vsock/socket"
+	"github.com/EkamSinghPandher/Tee-Google/vsock/socket/internal/sockettest"
 
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"

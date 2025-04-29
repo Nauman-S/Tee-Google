@@ -7,7 +7,7 @@ import (
 	"io"
 	"net"
 
-	"vsock"
+	"github.com/EkamSinghPandher/Tee-Google/vsock"
 
 	log "github.com/sirupsen/logrus"
 )

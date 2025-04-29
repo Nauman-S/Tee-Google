@@ -1,10 +1,8 @@
-module github.com/EkamSinghPandher/Tee-Google/google/host
+module github.com/EkamSinghPandher/Tee-Google/google/enclave
 
 replace github.com/EkamSinghPandher/Tee-Google/vsock => ./../../vsock
 
 go 1.23.0
-
-toolchain go1.23.8
 
 require (
 	github.com/EkamSinghPandher/Tee-Google/vsock v0.0.0-00010101000000-000000000000

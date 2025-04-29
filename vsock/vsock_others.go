@@ -5,10 +5,11 @@ package vsock
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"net"
 	"runtime"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // errUnimplemented is returned by all functions on platforms that

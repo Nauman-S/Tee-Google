@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"vsock/socket/internal/sockettest"
+	"github.com/EkamSinghPandher/Tee-Google/vsock/socket/internal/sockettest"
 
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/net/nettest"
