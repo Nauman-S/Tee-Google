@@ -25,6 +25,9 @@ func handle(context context.Context, conn net.Conn, remoteCid, remotePort uint32
 }
 
 func forward(context context.Context, source, destination net.Conn, close bool) {
+	log.Info("forwarding")
+	log.Infof("Source: %v -> Destination: %v", source.RemoteAddr(), destination.RemoteAddr())
+
 	defer func() {
 		if r := recover(); r != nil {
 			log.Errorf("forward RemoteAddr:%s,LocalAddr:%s,error:%v", source.RemoteAddr(), source.LocalAddr(), r)
@@ -37,7 +40,12 @@ func forward(context context.Context, source, destination net.Conn, close bool) 
 			destination.Close()
 		}()
 	}
-	io.Copy(destination, source)
+	copied, err := io.Copy(destination, source)
+	if err != nil {
+		log.Errorf("Copy failed after %d bytes: %v", copied, err)
+	} else {
+		log.Infof("Copy completed: %d bytes transferred", copied)
+	}
 }
 
 func NewProxy(context context.Context, localPort, remoteCid, remotePort uint32) {
@@ -68,6 +76,7 @@ func NewVsockProxy(context context.Context, remoteHost string, remotePort uint32
 	}
 	for {
 		conn, err := local.Accept()
+		log.Infof("Accepted connection from vsock")
 		if err != nil {
 			log.Errorf("NewVsockProxy Accept failed,localPort %d error: %s", localPort, err.Error())
 			return
@@ -99,8 +108,8 @@ func NewSocat(context context.Context, remoteCid uint32, remotePort uint32, loca
 }
 
 func handleVsock(context context.Context, conn net.Conn, remoteHost string, remotePort uint32) {
-	proxy, err := net.Dial("tcp", fmt.Sprintf("%s:%d", remoteHost, remotePort))
-	//log.Printf("proxy Dial remoteHost:%s , remotePort:%d, error:%v", remoteHost, remotePort, err)
+	proxy, err := net.Dial("tcp", net.JoinHostPort(remoteHost, fmt.Sprintf("%d", remotePort)))
+	// log.Printf("proxy Dial remoteHost:%s , remotePort:%d, error:%v", remoteHost, remotePort, err)
 	if err != nil {
 		log.Error(errors.New("handle failed to connect" + err.Error()))
 		return
