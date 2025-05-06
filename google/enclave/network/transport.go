@@ -2,52 +2,65 @@ package network
 
 import (
 	"bufio"
+	"crypto/tls"
 	"net/http"
-	"net/http/httputil"
 
 	"github.com/EkamSinghPandher/Tee-Google/vsock"
 	log "github.com/sirupsen/logrus"
 )
 
-// Roundtripper to overwrite the transport layer
-type VsockRoundTripper struct {
-	CID  uint32
-	Port uint32
+type VsockTLSRoundTripper struct {
+	CID       uint32
+	Port      uint32
+	TLSConfig *tls.Config
 }
 
-// Implement the round trip function, replacing tcp connection with a vsock one
-func (v *VsockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	reqDump, err := httputil.DumpRequest(req, false)
-	if err == nil {
-		log.Infof("Request being sent:\n%s", string(reqDump))
+// Implement the round trip function with TLS support
+func (v *VsockTLSRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Ensure we're using HTTPS
+	if req.URL.Scheme != "https" {
+		req = req.Clone(req.Context())
+		req.URL.Scheme = "https"
 	}
+
+	log.Infof("Sending HTTPS request to %s via vsock port: %d", req.URL.Host, v.Port)
 
 	// Dial vsock connection
-	log.Infof("Initiating vsock connection at vsock port: %d", v.Port)
-
 	conn, err := vsock.Dial(v.CID, v.Port, &vsock.Config{})
-	defer conn.Close()
 	if err != nil {
-		log.Errorf("Unable to initiate connection to the vsock with error: %v", err)
+		log.Errorf("Unable to connect to vsock port %d: %v", v.Port, err)
 		return nil, err
 	}
 
-	// Send HTTP request over the connection
-	if err := req.Write(conn); err != nil {
-		log.Errorf("Unable to forward request to the vsock with error: %v", err)
+	// Set ServerName based on the request's host if not already set
+	if v.TLSConfig.ServerName == "" {
+		v.TLSConfig = v.TLSConfig.Clone()
+		v.TLSConfig.ServerName = req.URL.Host
+	}
+
+	// Create TLS connection
+	tlsConn := tls.Client(conn, v.TLSConfig)
+	defer tlsConn.Close()
+
+	// Perform TLS handshake
+	if err := tlsConn.Handshake(); err != nil {
+		log.Errorf("TLS handshake failed: %v", err)
+		conn.Close()
 		return nil, err
 	}
 
-	log.Infof("Request prepared: %+v", req)
+	// Send HTTP request over TLS connection
+	if err := req.Write(tlsConn); err != nil {
+		log.Errorf("Failed to write request over TLS: %v", err)
+		return nil, err
+	}
 
-	// Read the HTTP response
-	response, err := http.ReadResponse(bufio.NewReader(conn), req)
-
+	// Read HTTP response over TLS
+	resp, err := http.ReadResponse(bufio.NewReader(tlsConn), req)
 	if err != nil {
-		log.Errorf("Unable to get response from vsock with error: %v", err)
+		log.Errorf("Failed to read response over TLS: %v", err)
 		return nil, err
 	}
 
-	log.Infof("Response received: %+v", response)
-	return response, err
+	return resp, nil
 }

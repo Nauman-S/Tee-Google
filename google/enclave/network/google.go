@@ -75,7 +75,7 @@ func GetGoogleKeys() (map[string]*rsa.PublicKey, error) {
 	// Read the response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Errorf("error reading response body: %v", err)
+		log.Errorf("Error reading response body: %v", err)
 		return nil, fmt.Errorf("Error reading response body: %v", err)
 	}
 

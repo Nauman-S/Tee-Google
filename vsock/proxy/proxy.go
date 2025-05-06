@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 
 	"github.com/EkamSinghPandher/Tee-Google/vsock"
 
@@ -35,7 +36,7 @@ func forward(context context.Context, source, destination net.Conn, close bool) 
 	}()
 	if close {
 		defer func() {
-			//log.Printf("close connection,source:%s,target:%s", source.LocalAddr(), destination.RemoteAddr())
+			log.Printf("close connection,source:%s,target:%s", source.LocalAddr(), destination.RemoteAddr())
 			source.Close()
 			destination.Close()
 		}()
@@ -82,7 +83,9 @@ func NewVsockProxy(context context.Context, remoteHost string, remotePort uint32
 			return
 		}
 		// log.Printf("conn Accept,local:%s,remote :%s", local.Addr().String(), conn.RemoteAddr().String())
+
 		go handleVsock(context, conn, remoteHost, remotePort)
+
 	}
 }
 
@@ -108,8 +111,15 @@ func NewSocat(context context.Context, remoteCid uint32, remotePort uint32, loca
 }
 
 func handleVsock(context context.Context, conn net.Conn, remoteHost string, remotePort uint32) {
-	proxy, err := net.Dial("tcp", net.JoinHostPort(remoteHost, fmt.Sprintf("%d", remotePort)))
-	// log.Printf("proxy Dial remoteHost:%s , remotePort:%d, error:%v", remoteHost, remotePort, err)
+	hostname := remoteHost
+	if strings.HasPrefix(hostname, "https://") {
+		hostname = strings.TrimPrefix(hostname, "https://")
+	} else if strings.HasPrefix(hostname, "http://") {
+		hostname = strings.TrimPrefix(hostname, "http://")
+	}
+
+	log.Infof("Connecting to %s:%d", hostname, remotePort)
+	proxy, err := net.Dial("tcp", net.JoinHostPort(hostname, fmt.Sprintf("%d", remotePort)))
 	if err != nil {
 		log.Error(errors.New("handle failed to connect" + err.Error()))
 		return

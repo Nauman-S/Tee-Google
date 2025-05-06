@@ -7,7 +7,7 @@ import (
 
 func main() {
 	log.Info("Starting google auth POC enclave service")
-	network.InitGoogleHttpsClientWithVsockTransport(50001)
+	network.InitGoogleHttpsClientWithTLSVsockTransport(50001)
 
 	keys, err := network.GetGoogleKeys()
 
