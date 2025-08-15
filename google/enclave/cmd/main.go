@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/EkamSinghPandher/Tee-Google/google/enclave/attest"
 	"github.com/EkamSinghPandher/Tee-Google/google/enclave/network"
 	log "github.com/sirupsen/logrus"
 )
@@ -13,9 +14,30 @@ func main() {
 
 	if err != nil {
 		log.Errorf("Error sending request through vsock with err: %v", err)
+		return
 	}
 
 	log.Infof("Successfully fetched keys: %+v", keys)
+
+	prepareAttestationPayload, err := attest.PrepareAttestationPayload(keys)
+	if err != nil {
+		log.Errorf("Error preparing attestation payload: %v", err)
+	}
+	log.Infof("Prepared attestation payload: %+v", prepareAttestationPayload)
+
+	attestation, err := attest.GenerateMockAttestation(prepareAttestationPayload)
+	if err != nil {
+		log.Errorf("Error generating mock attestation: %v", err)
+		return
+	}
+	log.Infof("Generated mock attestation: %s", attestation)
+
+	ParseAttestation, err := attest.ParseAttestation(attestation)
+	if err != nil {
+		log.Errorf("Error parsing attestation: %v", err)
+		return
+	}
+	log.Infof("Parsed attestation: %+v", ParseAttestation)
 
 	for {
 

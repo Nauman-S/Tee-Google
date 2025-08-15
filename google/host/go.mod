@@ -1,6 +1,7 @@
 module github.com/EkamSinghPandher/Tee-Google/google/host
 
 replace github.com/EkamSinghPandher/Tee-Google/vsock => ./../../vsock
+replace github.com/EkamSinghPandher/Tee-Google/securelib => ./../../securelib
 
 go 1.23.0
 
