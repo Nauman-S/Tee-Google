@@ -1,0 +1,3 @@
+[submodule "dkim-oracle/lib/forge-std"]
+	path = dkim-oracle/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
