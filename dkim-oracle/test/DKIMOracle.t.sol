@@ -9,7 +9,7 @@ contract DKIMOracleTest is Test {
     DKIMOracle public oracle;
 
     function setUp() public {
-        vm.warp(1742233000);// Monday, 17 March 2025 17:36:40 GMT - critical for test payload certificate verification
+        vm.warp(1742270400);// 18 March 2025 04:00:00 GMT - critical for test payload certificate verification
         CertManager certManager = new CertManager();
         oracle = new DKIMOracle(certManager);
     }
