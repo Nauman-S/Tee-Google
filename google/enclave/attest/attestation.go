@@ -64,7 +64,7 @@ func GenerateMockAttestation(payload *AttestationPayload) ([]byte, error) {
 		return nil, fmt.Errorf("failed to marshal payload: %v", err)
 	}
 
-	log.Infof("Prepared attestation userData: %d bytes", len(userDataBytes))
+	log.Infof("Prepared attestation for userData: %d bytes", len(userDataBytes))
 
 	// Generate mock attestation
 	manager := securelib.GetManager()

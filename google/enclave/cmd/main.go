@@ -30,14 +30,13 @@ func main() {
 		log.Errorf("Error generating mock attestation: %v", err)
 		return
 	}
-	log.Infof("Generated mock attestation: %s", attestation)
+	log.Infof("Generated mock attestation: %d bytes", len(attestation))
 
 	ParseAttestation, err := attest.ParseAttestation(attestation)
 	if err != nil {
-		log.Errorf("Error parsing attestation: %v", err)
+		log.Errorf("Error parsing attestation: %v, %+v", err, ParseAttestation)
 		return
 	}
-	log.Infof("Parsed attestation: %+v", ParseAttestation)
 
 	for {
 

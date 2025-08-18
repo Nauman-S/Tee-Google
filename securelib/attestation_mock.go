@@ -1,7 +1,6 @@
 package securelib
 
 import (
-	"bytes"
 	"encoding/hex"
 	"fmt"
 	"strconv"
@@ -31,15 +30,15 @@ func GetManager() *mockManager {
 }
 
 func (m *mockManager) Attest(pubKey []byte, userData []byte) ([]byte, error) {
-	mockPkStr := strings.TrimPrefix(mockIdentityPKHex, "0x")
-	mockPkBuf, _ := hex.DecodeString(mockPkStr)
+	// mockPkStr := strings.TrimPrefix(mockIdentityPKHex, "0x")
+	// mockPkBuf, _ := hex.DecodeString(mockPkStr)
 
-	mockHpStr := strings.TrimPrefix(mockHpkePKHex, "0x")
-	mockHpBuf, _ := hex.DecodeString(mockHpStr)
+	// mockHpStr := strings.TrimPrefix(mockHpkePKHex, "0x")
+	// mockHpBuf, _ := hex.DecodeString(mockHpStr)
 
-	if !bytes.Equal(pubKey, mockPkBuf) || !bytes.Equal(userData, mockHpBuf) {
-		return nil, fmt.Errorf("invalid params in mock mode")
-	}
+	// if !bytes.Equal(pubKey, mockPkBuf) || !bytes.Equal(userData, mockHpBuf) {
+	// 	return nil, fmt.Errorf("invalid params in mock mode")
+	// }
 	docStr := strings.TrimPrefix(mockDocHex, "0x")
 	return hex.DecodeString(docStr)
 }
