@@ -105,6 +105,11 @@ contract DKIMOracle {
         return ptrs;
     }
 
+    function decodeAndValidateAttestation(bytes memory attestation) external returns (Ptrs memory) {
+        (bytes memory attestationTbs, bytes memory signature) = this.decodeAttestationTbs(attestation);
+        return validateAttestation(attestationTbs, signature);
+    }
+
     function verifyCertBundle(bytes memory certificate, bytes[] memory cabundle)
         internal
         returns (ICertManager.VerifiedCert memory)
