@@ -1,19 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "forge-std/test.sol";
+import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 
-// Import your oracle contracts (create these files)
-// import "../../contracts/DKIMOracle.sol";
-// import "../../contracts/EmailRecovery.sol";
-// import "../../contracts/PublicKeyRegistry.sol";
-
+import "../../contracts/CertManager.sol";
+import "../../contracts/ICertManager.sol";
+import "../../contracts/DKIMOracle.sol";
+import "../../contracts/DKIMRegistry.sol";
 import "../../contracts/Counter.sol";
 
 
 
-contract DKIMOracle is Test {
+contract DeployDKIMOracle is Script {
     address deployer = vm.rememberKey(vm.envUint("PRIVATE_KEY"));
     
     function run() public {
@@ -30,15 +29,25 @@ contract DKIMOracle is Test {
 
         vm.startBroadcast(deployer);
 
-        // Deploy Counter contract
+        // Deploy Counter contract  
         Counter counter = new Counter();
         address counterAddress = address(counter);
         console2.log("Counter deployed: %s", counterAddress);
 
-        // The DKIM contracts will be deployed later when ready
-        // address publicKeyRegistry = address(new PublicKeyRegistry());
-        // address dkimOracle = address(new DKIMOracle(publicKeyRegistry));
-        // address emailRecovery = address(new EmailRecovery(dkimOracle));
+        // Deploy CertManager first (DKIMOracle depends on it)
+        CertManager certManager = new CertManager(); //forge build --sizes , currently contract is too large to deploy
+        address certManagerAddress = address(certManager);
+        console2.log("CertManager deployed: %s", certManagerAddress);
+
+        // Deploy DKIM Oracle (requires CertManager address)
+        DKIMOracle oracle = new DKIMOracle(ICertManager(certManagerAddress));
+        address oracleAddress = address(oracle);
+        console2.log("DKIMOracle deployed: %s", oracleAddress);
+
+        // Deploy DKIM Registry (requires DKIMOracle address)
+        DKIMRegistry registry = new DKIMRegistry();
+        address registryAddress = address(registry);
+        console2.log("DKIMRegistry deployed: %s", registryAddress);
         
         vm.stopBroadcast();
 
@@ -46,5 +55,8 @@ contract DKIMOracle is Test {
         console2.log("Network: Chain ID %s", block.chainid);
         console2.log("Deployer: %s", deployer);
         console2.log("Counter: %s", counterAddress);
+        console2.log("CertManager: %s", certManagerAddress);
+        console2.log("DKIMOracle: %s", oracleAddress);
+        console2.log("DKIMRegistry: %s", registryAddress);
     }
 }
