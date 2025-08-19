@@ -20,7 +20,13 @@ forge build
 forge test
 
 # Deploy to network
-forge script src/deploy/DeployDKIMOracle.s.sol --rpc-url local --private-key <private-key> --broadcast
+cp .env.example .env
+
+anvil
+
+source .env
+
+forge script src/deploy/DeployDKIMOracleReduced.s.sol --rpc-url local --broadcast
 ```
 
 
@@ -46,37 +52,8 @@ Foundry consists of:
 
 https://book.getfoundry.sh/
 
-## Usage
 
-### Build
 
-```shell
-$ forge build
-```
-
-### Test
-
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
 
 ### Help
 
