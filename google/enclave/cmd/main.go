@@ -1,14 +1,17 @@
 package main
 
 import (
+	client "github.com/EkamSinghPandher/Tee-Google/google/enclave/_client"
 	"github.com/EkamSinghPandher/Tee-Google/google/enclave/attest"
 	"github.com/EkamSinghPandher/Tee-Google/google/enclave/network"
+
 	log "github.com/sirupsen/logrus"
 )
 
 func main() {
 	log.Info("Starting google auth POC enclave service")
 	network.InitGoogleHttpsClientWithTLSVsockTransport(50001)
+	network.InitEthereumClientWithVsockTransport(50003)
 
 	keys, err := network.GetGoogleKeys()
 
@@ -32,9 +35,9 @@ func main() {
 	}
 	log.Infof("Generated mock attestation: %d bytes", len(attestation))
 
-	ParseAttestation, err := attest.ParseAttestation(attestation)
+	err = client.SubmitAttestationToBlockchain(attestation)
 	if err != nil {
-		log.Errorf("Error parsing attestation: %v, %+v", err, ParseAttestation)
+		log.Errorf("Error submitting attestation to blockchain: %v", err)
 		return
 	}
 

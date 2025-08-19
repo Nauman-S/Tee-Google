@@ -64,3 +64,34 @@ func (v *VsockTLSRoundTripper) RoundTrip(req *http.Request) (*http.Response, err
 
 	return resp, nil
 }
+
+// VsockHTTPRoundTripper is a custom RoundTripper for plain HTTP over VSock (no TLS)
+type VsockHTTPRoundTripper struct {
+	CID  uint32
+	Port uint32
+}
+
+func (v *VsockHTTPRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Create VSock connection
+	conn, err := vsock.Dial(v.CID, v.Port, &vsock.Config{})
+	if err != nil {
+		log.Errorf("Unable to connect to vsock port %d: %v", v.Port, err)
+		return nil, err
+	}
+	defer conn.Close()
+
+	// Send HTTP request directly over VSock (no TLS)
+	if err := req.Write(conn); err != nil {
+		log.Errorf("Failed to write request over VSock: %v", err)
+		return nil, err
+	}
+
+	// Read HTTP response directly over VSock
+	resp, err := http.ReadResponse(bufio.NewReader(conn), req)
+	if err != nil {
+		log.Errorf("Failed to read response over VSock: %v", err)
+		return nil, err
+	}
+
+	return resp, nil
+}

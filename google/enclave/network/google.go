@@ -19,8 +19,8 @@ const googleJwksUrl = "https://www.googleapis.com/oauth2/v3/certs"
 
 // Combined response structure
 type GoogleKeys struct {
-	JWKSKeys map[string]*rsa.PublicKey `json:"jwks_keys"`
-	DKIMKeys map[string]*rsa.PublicKey `json:"dkim_keys"`
+	JWKSKeys map[string]*rsa.PublicKey            `json:"jwks_keys"`
+	DKIMKeys map[string]map[string]*rsa.PublicKey `json:"dkim_keys"`
 }
 
 // JWK represents a JSON Web Key
@@ -77,7 +77,7 @@ type JWKSResponse struct {
 func GetGoogleKeys() (*GoogleKeys, error) {
 	result := &GoogleKeys{
 		JWKSKeys: make(map[string]*rsa.PublicKey),
-		DKIMKeys: make(map[string]*rsa.PublicKey),
+		DKIMKeys: make(map[string]map[string]*rsa.PublicKey),
 	}
 
 	jwksKeys, err := getJWKSKeys()
@@ -98,18 +98,24 @@ func GetGoogleKeys() (*GoogleKeys, error) {
 		return nil, fmt.Errorf("failed to fetch both JWKS and DKIM keys")
 	}
 
+	total_dkim_keys := 0
+
+	for _, selectors := range result.DKIMKeys {
+		total_dkim_keys += len(selectors)
+	}
+
 	log.Infof("Successfully fetched %d JWKS keys and %d DKIM keys",
-		len(result.JWKSKeys), len(result.DKIMKeys))
+		len(result.JWKSKeys), total_dkim_keys)
 
 	return result, nil
 }
 
-func getDKIMKeys() (map[string]*rsa.PublicKey, error) {
+func getDKIMKeys() (map[string]map[string]*rsa.PublicKey, error) {
 	// Gmail DKIM selectors to try
 	selectors := []string{"20230601"}
 	domain := "gmail.com"
 
-	keys := make(map[string]*rsa.PublicKey)
+	keys := make(map[string]map[string]*rsa.PublicKey)
 
 	for _, selector := range selectors {
 		dkimDomain := fmt.Sprintf("%s._domainkey.%s", selector, domain)
@@ -131,7 +137,11 @@ func getDKIMKeys() (map[string]*rsa.PublicKey, error) {
 					continue
 				}
 
-				keys[selector] = pubKey
+				if keys[domain] == nil {
+					keys[domain] = make(map[string]*rsa.PublicKey)
+				}
+
+				keys[domain][selector] = pubKey
 				break
 			}
 		}

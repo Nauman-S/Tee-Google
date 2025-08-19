@@ -14,23 +14,23 @@ import (
 
 func init() {
 	securelib.InitMock()
-	log.Info("Attestation module initialized")
 }
 
 type AttestationPayload struct {
-	Provider string            `json:"provider"`
-	JWKSKeys map[string]string `json:"jwks_keys"` // kid -> base64 DER
-	DKIMKeys map[string]string `json:"dkim_keys"` // selector -> base64 DER
+	Provider string                       `json:"provider"`
+	JWKSKeys map[string]string            `json:"jwks_keys"` // kid -> base64 DER
+	DKIMKeys map[string]map[string]string `json:"dkim_keys"` // domain -> selector -> base64 DER
 }
 
 func PrepareAttestationPayload(googleKeys *network.GoogleKeys) (*AttestationPayload, error) {
 	payload := &AttestationPayload{
 		Provider: "google",
 		JWKSKeys: make(map[string]string),
-		DKIMKeys: make(map[string]string),
+		DKIMKeys: make(map[string]map[string]string),
 	}
 
 	// Convert JWKS RSA keys to base64 DER
+	total_jwks_keys := 0
 	for kid, rsaKey := range googleKeys.JWKSKeys {
 		derBytes, err := x509.MarshalPKIXPublicKey(rsaKey)
 		if err != nil {
@@ -38,20 +38,28 @@ func PrepareAttestationPayload(googleKeys *network.GoogleKeys) (*AttestationPayl
 			continue
 		}
 		payload.JWKSKeys[kid] = base64.StdEncoding.EncodeToString(derBytes)
+		total_jwks_keys++
 	}
 
 	// Convert DKIM RSA keys to base64 DER
-	for selector, rsaKey := range googleKeys.DKIMKeys {
-		derBytes, err := x509.MarshalPKIXPublicKey(rsaKey)
-		if err != nil {
-			log.Warnf("Failed to marshal DKIM key %s: %v", selector, err)
-			continue
+	total_dkim_keys := 0
+	for domain, selectors := range googleKeys.DKIMKeys {
+		for selector, rsaKey := range selectors {
+			derBytes, err := x509.MarshalPKIXPublicKey(rsaKey)
+			if err != nil {
+				log.Warnf("Failed to marshal DKIM key %s: %v", selector, err)
+				continue
+			}
+			if payload.DKIMKeys[domain] == nil {
+				payload.DKIMKeys[domain] = make(map[string]string)
+			}
+			payload.DKIMKeys[domain][selector] = base64.StdEncoding.EncodeToString(derBytes)
+			total_dkim_keys++
 		}
-		payload.DKIMKeys[selector] = base64.StdEncoding.EncodeToString(derBytes)
 	}
 
 	log.Infof("Prepared attestation for provider: %s with %d JWKS and %d DKIM keys",
-		payload.Provider, len(payload.JWKSKeys), len(payload.DKIMKeys))
+		payload.Provider, total_jwks_keys, total_dkim_keys)
 
 	return payload, nil
 }
@@ -63,9 +71,6 @@ func GenerateMockAttestation(payload *AttestationPayload) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal payload: %v", err)
 	}
-
-	log.Infof("Prepared attestation for userData: %d bytes", len(userDataBytes))
-
 	// Generate mock attestation
 	manager := securelib.GetManager()
 	return manager.Attest(nil, userDataBytes)
