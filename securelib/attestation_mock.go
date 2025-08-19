@@ -40,7 +40,17 @@ func (m *mockManager) Attest(pubKey []byte, userData []byte) ([]byte, error) {
 	// 	return nil, fmt.Errorf("invalid params in mock mode")
 	// }
 	docStr := strings.TrimPrefix(mockDocHex, "0x")
-	return hex.DecodeString(docStr)
+	attestation, err := hex.DecodeString(docStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode mock attestation: %w", err)
+	}
+
+	attestation, err = InjectCustomDataIntoAttestation(attestation, userData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to inject custom data into attestation: %w", err)
+	}
+
+	return attestation, nil
 }
 
 func (m *mockManager) Parse(doc []byte) (*Doc, error) {
