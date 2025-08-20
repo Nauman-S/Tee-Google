@@ -14,10 +14,9 @@ interface IDKIMRegistry {
         string indexed selector
     );
 
-    // Core Functions
     function storeDKIMKeysFromAttestation(
-        bytes calldata attestationTbs
-    ) external; // Only callable by DKIMOracle
+        bytes calldata attestation
+    ) external;
     
     function getDKIMKey(
         string calldata domain,
