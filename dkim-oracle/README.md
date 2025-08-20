@@ -22,7 +22,7 @@ forge test
 # Deploy to network
 cp .env.example .env
 
-anvil --timestamp 1742270400 --gas-limit 55000000
+anvil --timestamp 1742270400 --gas-limit 60000000
 
 source .env
 

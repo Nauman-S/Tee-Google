@@ -82,7 +82,7 @@ contract DKIMOracle {
             ptrs.publicKey.isNull() || (1 <= ptrs.publicKey.length() && ptrs.publicKey.length() <= 1024),
             "invalid pub key"
         );
-        require(ptrs.userData.isNull() || (ptrs.userData.length() <= 512), "invalid user data");
+        require(ptrs.userData.isNull() || (ptrs.userData.length() <= 2048), "invalid user data"); // Increased for DKIM/JWKS keys
         require(ptrs.nonce.isNull() || (ptrs.nonce.length() <= 512), "invalid nonce");
 
         for (uint256 i = 0; i < ptrs.pcrs.length; i++) {
