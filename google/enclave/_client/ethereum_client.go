@@ -68,8 +68,8 @@ func submitToDKIMOracle(client *ethclient.Client, attestation []byte) error {
 		return fmt.Errorf("failed to create transactor: %v", err)
 	}
 
-	// Set gas limit to 55M gas (should use alittle over 50M for first time validation)
-	gas_limit := uint64(54000000)
+	// Set gas limit to 60M gas (should use alittle over 55M for first time validation)
+	gas_limit := uint64(60000000)
 	auth.GasLimit = gas_limit
 
 	log.Infof("Calling DKIMOracle contract at %s with attestation: %d bytes", contractAddress.Hex(), len(attestation))
