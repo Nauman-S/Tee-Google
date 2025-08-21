@@ -28,7 +28,7 @@ func main() {
 	}
 	log.Infof("Prepared attestation payload: %+v", prepareAttestationPayload)
 
-	attestation, err := attest.GenerateMockAttestation(prepareAttestationPayload)
+	attestation, err := attest.GenerateMockDKIMCBORAttestation(prepareAttestationPayload)
 	if err != nil {
 		log.Errorf("Error generating mock attestation: %v", err)
 		return

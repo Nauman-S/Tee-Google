@@ -8,6 +8,7 @@ import (
 
 	"github.com/EkamSinghPandher/Tee-Google/google/enclave/network"
 	"github.com/EkamSinghPandher/Tee-Google/securelib"
+	"github.com/fxamacker/cbor/v2"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -72,6 +73,23 @@ func GenerateMockAttestation(payload *AttestationPayload) ([]byte, error) {
 		return nil, fmt.Errorf("failed to marshal payload: %v", err)
 	}
 	// Generate mock attestation
+	manager := securelib.GetManager()
+	return manager.Attest(nil, userDataBytes)
+}
+
+func GenerateMockDKIMCBORAttestation(payload *AttestationPayload) ([]byte, error) {
+	flattenedDKIM := make(map[string]string)
+	for domain, selectors := range payload.DKIMKeys {
+		for selector, key := range selectors {
+			flattenedKey := domain + ";" + selector
+			flattenedDKIM[flattenedKey] = key
+		}
+	}
+
+	userDataBytes, err := cbor.Marshal(flattenedDKIM)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal flattened DKIM keys to CBOR: %v", err)
+	}
 	manager := securelib.GetManager()
 	return manager.Attest(nil, userDataBytes)
 }
