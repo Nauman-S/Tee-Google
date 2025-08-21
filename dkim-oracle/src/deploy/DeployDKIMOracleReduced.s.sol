@@ -52,7 +52,7 @@ contract DeployDKIMOracleReduced is Script {
         console2.log("DKIMOracle deployed: %s", oracleAddress);
 
         // Deploy DKIM Registry 
-        DKIMRegistry registry = new DKIMRegistry();
+        DKIMRegistry registry = new DKIMRegistry(oracle);
         address registryAddress = address(registry);
         console2.log("DKIMRegistry deployed: %s", registryAddress);
         

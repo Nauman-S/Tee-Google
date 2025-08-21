@@ -3,19 +3,25 @@ pragma solidity ^0.8.22;
 
 import {IDKIMRegistry} from "./IDKIMRegistry.sol";
 import {DKIMOracle} from "./DKIMOracle.sol";
-import {CborElement, LibCborElement} from "./CborDecode.sol";
+import {CborDecode, CborElement, LibCborElement} from "./CborDecode.sol";
 import {LibBytes} from "./LibBytes.sol";
 
+
+/**
+ * @title DKIMRegistry
+ * @notice DKIM registry that expects only DKIM keys in attestation userData
+ * @dev Expects userData to contain flattened structure: {"domain;selector":"base64key"}
+ */
 contract DKIMRegistry is IDKIMRegistry {
     using LibBytes for bytes;
     using LibCborElement for CborElement;
+    using CborDecode for bytes;
     
     DKIMOracle public immutable dkimOracle;
 
     constructor(DKIMOracle _dkimOracle) {
         dkimOracle = _dkimOracle;
     }
-
 
     struct DKIMKey {
         bytes publicKey;
@@ -26,7 +32,6 @@ contract DKIMRegistry is IDKIMRegistry {
     // Dev debugging only
     string[] private allDomains;
     string[] private allSelectors;
-
 
     function storeDKIMKeysFromAttestation(
         bytes calldata attestation
@@ -39,8 +44,6 @@ contract DKIMRegistry is IDKIMRegistry {
             _parseAndStoreDKIMKeys(userDataBytes);
         }
     }
-
-
 
     function getDKIMKey(
         string calldata domain,
@@ -55,7 +58,7 @@ contract DKIMRegistry is IDKIMRegistry {
             return ("", false);
         }
         
-        return (key.publicKey, true); // Always true for now
+        return (key.publicKey, true);
     }
 
     // Dev debugging only
@@ -79,187 +82,93 @@ contract DKIMRegistry is IDKIMRegistry {
     }
 
     function _extractBytes(bytes calldata attestation, CborElement element) private pure returns (bytes memory) {
+        // WORKAROUND: The CBOR library has an 11-byte offset bug for userData
+        // Adjust the start position to compensate
+        uint256 adjustedStart = element.start();
+        if (adjustedStart >= 11) {
+            adjustedStart = adjustedStart - 11;
+            
+            // Verify the correction points to valid CBOR map
+            if (adjustedStart < attestation.length && attestation[adjustedStart] == 0xa1) {
+                // Use corrected boundaries
+                uint256 correctedLength = element.length();
+                if (adjustedStart + correctedLength > attestation.length) {
+                    correctedLength = attestation.length - adjustedStart;
+                }
+                
+                return attestation.slice(adjustedStart, correctedLength);
+            }
+        }
+        
+        // Fallback to original extraction
         return attestation.slice(element.start(), element.length());
     }
     
+    /**
+     * @notice Optimized CBOR parser for flattened DKIM structure
+     * @dev Expected CBOR format: {"domain;selector": "base64key"}
+     */
     function _parseAndStoreDKIMKeys(bytes memory userDataBytes) private {
-        //{"provider":"google","jwks_keys":{...},"dkim_keys":{"domain":{"selector":"base64key"}}}
-        string memory userData = string(userDataBytes);
+        // Parse as simple CBOR map: {domain;selector: key}
+        CborElement topLevel = userDataBytes.mapAt(0);
+        uint256 numEntries = topLevel.value();
+        uint256 end = userDataBytes.length;
         
-        // Find "dkim_keys" section
-        uint256 dkimKeysStart = _findSubstring(userData, '"dkim_keys":');
-        if (dkimKeysStart == type(uint256).max) {
-            return; // No DKIM keys found
-        }
+        CborElement current = topLevel;
         
-        // Move past "dkim_keys":
-        dkimKeysStart += 12; // Length of '"dkim_keys":'
-        
-        // Skip whitespace to find the opening brace  
-        bytes memory userDataBytesRef = bytes(userData);
-        dkimKeysStart = _skipWhitespace(userDataBytesRef, dkimKeysStart);
-        
-        // Check for opening brace
-        if (dkimKeysStart >= userDataBytesRef.length || userDataBytesRef[dkimKeysStart] != '{') {
-            return;
-        }
-        
-        dkimKeysStart += 1; // Move past '{'
-        
-        // Parse each domain
-        uint256 pos = dkimKeysStart;
-        
-        while (pos < userDataBytesRef.length) {
-            // Skip whitespace
-            pos = _skipWhitespace(userDataBytesRef, pos);
+        // Iterate through all flattened entries
+        for (uint256 i = 0; i < numEntries && current.end() < end; i++) {
+            // Get the flattened key (domain;selector)
+            current = userDataBytes.nextTextString(current);
+            string memory flatKey = string(userDataBytes.slice(current));
             
-            if (pos >= userDataBytesRef.length || userDataBytesRef[pos] == '}') {
-                break; // End of dkim_keys object
-            }
+            // Split on semicolon to get domain and selector
+            (string memory domain, string memory selector) = _splitDomainSelector(flatKey);
             
-            // Parse domain name (quoted string)
-            if (userDataBytesRef[pos] == '"') {
-                pos += 1; // Skip opening quote
-                uint256 domainStart = pos;
-                pos = _findChar(userData, '"', pos); // Find closing quote
-                if (pos == type(uint256).max) {
-                    break;
-                }
-                
-                string memory domain = _substring(userData, domainStart, pos);
-                pos += 1; // Skip closing quote
-                
-                // Skip colon and whitespace
-                pos = _skipWhitespace(userDataBytesRef, pos);
-                if (pos >= userDataBytesRef.length || userDataBytesRef[pos] != ':') break;
-                pos += 1; // Skip ':'
-                pos = _skipWhitespace(userDataBytesRef, pos);
-                
-                // Parse selectors object
-                if (pos < userDataBytesRef.length && userDataBytesRef[pos] == '{') {
-                    pos += 1; // Skip '{'
-                    pos = _parseSelectorsForDomain(userData, userDataBytesRef, pos, domain);
-                }
-            }
+            current = userDataBytes.nextTextString(current);
+            bytes memory publicKey = userDataBytes.slice(current);
             
-            // Skip to next domain (look for comma or end)
-            pos = _skipWhitespace(userDataBytesRef, pos);
-            if (pos < userDataBytesRef.length && userDataBytesRef[pos] == ',') {
-                pos += 1; // Skip comma
-            }
-        }
-    }
-    
-    function _parseSelectorsForDomain(string memory userData, bytes memory userDataBytes, uint256 startPos, string memory domain) private returns (uint256) {
-        uint256 pos = startPos;
-        
-        while (pos < userDataBytes.length) {
-            // Skip whitespace
-            pos = _skipWhitespace(userDataBytes, pos);
-            if (pos >= userDataBytes.length || userDataBytes[pos] == '}') {
-                return pos + 1; // End of selectors object
-            }
-            
-            // Parse selector name (quoted string)
-            if (userDataBytes[pos] == '"') {
-                pos += 1; // Skip opening quote
-                uint256 selectorStart = pos;
-                pos = _findChar(userData, '"', pos); // Find closing quote
-                if (pos == type(uint256).max) break;
-                
-                string memory selector = _substring(userData, selectorStart, pos);
-                pos += 1; // Skip closing quote
-                
-                // Skip colon and whitespace
-                pos = _skipWhitespace(userDataBytes, pos);
-                if (pos >= userDataBytes.length || userDataBytes[pos] != ':') break;
-                pos += 1; // Skip ':'
-                pos = _skipWhitespace(userDataBytes, pos);
-                
-                // Parse public key (quoted string)
-                if (pos < userDataBytes.length && userDataBytes[pos] == '"') {
-                    pos += 1; // Skip opening quote
-                    uint256 keyStart = pos;
-                    pos = _findChar(userData, '"', pos); // Find closing quote
-                    if (pos == type(uint256).max) break;
+            if (bytes(domain).length > 0 && bytes(selector).length > 0) {
+                if (keys[domain][selector].publicKey.length == 0) {
+                    keys[domain][selector] = DKIMKey({
+                        publicKey: publicKey
+                    });
                     
-                    string memory publicKeyStr = _substring(userData, keyStart, pos);
-                    bytes memory publicKey = bytes(publicKeyStr);
-                    pos += 1; // Skip closing quote
+                    allDomains.push(domain);
+                    allSelectors.push(selector);
                     
-                    // Store the key if not already exists
-                    if (keys[domain][selector].publicKey.length == 0) {
-                        keys[domain][selector] = DKIMKey({
-                            publicKey: publicKey
-                        });
-                        
-                        allDomains.push(domain);
-                        allSelectors.push(selector);
-                        
-                        emit KeyRegistered(publicKey, domain, selector);
-                    }
+                    emit KeyRegistered(publicKey, domain, selector);
                 }
             }
+        }
+    }
+    
+    function _splitDomainSelector(string memory flatKey) private pure returns (string memory domain, string memory selector) {
+        bytes memory flatKeyBytes = bytes(flatKey);
+        uint256 semicolonPos = 0;
+        
+        for (uint256 i = 0; i < flatKeyBytes.length; i++) {
+            if (flatKeyBytes[i] == 0x3b) {
+                semicolonPos = i;
+                break;
+            }
+        }
+        
+        if (semicolonPos > 0 && semicolonPos < flatKeyBytes.length - 1) {
+            // domain
+            bytes memory domainBytes = new bytes(semicolonPos);
+            for (uint256 i = 0; i < semicolonPos; i++) {
+                domainBytes[i] = flatKeyBytes[i];
+            }
+            domain = string(domainBytes);
             
-            // Skip to next selector (look for comma or end)
-            pos = _skipWhitespace(userDataBytes, pos);
-            if (pos < userDataBytes.length && userDataBytes[pos] == ',') {
-                pos += 1; // Skip comma
+            //selector
+            uint256 selectorLength = flatKeyBytes.length - semicolonPos - 1;
+            bytes memory selectorBytes = new bytes(selectorLength);
+            for (uint256 i = 0; i < selectorLength; i++) {
+                selectorBytes[i] = flatKeyBytes[semicolonPos + 1 + i];
             }
+            selector = string(selectorBytes);
         }
-        
-        return pos;
     }
-    
-    // Helper functions for string parsing
-    function _findSubstring(string memory str, string memory substr) private pure returns (uint256) {
-        bytes memory strBytes = bytes(str);
-        bytes memory substrBytes = bytes(substr);
-        
-        if (substrBytes.length > strBytes.length) {
-            return type(uint256).max;
-        }
-        
-        for (uint256 i = 0; i <= strBytes.length - substrBytes.length; i++) {
-            bool found = true;
-            for (uint256 j = 0; j < substrBytes.length; j++) {
-                if (strBytes[i + j] != substrBytes[j]) {
-                    found = false;
-                    break;
-                }
-            }
-            if (found) {
-                return i;
-            }
-        }
-        
-        return type(uint256).max;
-    }
-    
-    function _findChar(string memory str, bytes1 char, uint256 startPos) private pure returns (uint256) {
-        bytes memory strBytes = bytes(str);
-        for (uint256 i = startPos; i < strBytes.length; i++) {
-            if (strBytes[i] == char) {
-                return i;
-            }
-        }
-        return type(uint256).max;
-    }
-    
-    function _skipWhitespace(bytes memory data, uint256 pos) private pure returns (uint256) {
-        while (pos < data.length && (data[pos] == ' ' || data[pos] == '\t' || data[pos] == '\n' || data[pos] == '\r')) {
-            pos++;
-        }
-        return pos;
-    }
-    
-    function _substring(string memory str, uint256 start, uint256 end) private pure returns (string memory) {
-        bytes memory strBytes = bytes(str);
-        bytes memory result = new bytes(end - start);
-        for (uint256 i = 0; i < end - start; i++) {
-            result[i] = strBytes[start + i];
-        }
-        return string(result);
-    }
-
 }

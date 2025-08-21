@@ -44,8 +44,8 @@ contract DeployDKIMOracle is Script {
         address oracleAddress = address(oracle);
         console2.log("DKIMOracle deployed: %s", oracleAddress);
 
-        // Deploy DKIM Registry (requires DKIMOracle address)
-        DKIMRegistry registry = new DKIMRegistry();
+        // Deploy DKIM Registry (requires DKIMOracle instance)
+        DKIMRegistry registry = new DKIMRegistry(oracle);
         address registryAddress = address(registry);
         console2.log("DKIMRegistry deployed: %s", registryAddress);
         
